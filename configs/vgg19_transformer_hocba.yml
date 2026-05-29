@@ -1,0 +1,82 @@
+# Full config: base VietOCR + VGG19-bn Transformer pretrained model.
+vocab: 'aAàÀảẢãÃáÁạẠăĂằẰẳẲẵẴắẮặẶâÂầẦẩẨẫẪấẤậẬbBcCdDđĐeEèÈẻẺẽẼéÉẹẸêÊềỀểỂễỄếẾệỆfFgGhHiIìÌỉỈĩĨíÍịỊjJkKlLmMnNoOòÒỏỎõÕóÓọỌôÔồỒổỔỗỖốỐộỘơƠờỜởỞỡỠớỚợỢpPqQrRsStTuUùÙủỦũŨúÚụỤưƯừỪửỬữỮứỨựỰvVwWxXyYỳỲỷỶỹỸýÝỵỴzZ0123456789!"#$%&''()*+,-./:;<=>?@[\]^_`{|}~ '
+
+device: cuda:0
+
+pretrain: https://vocr.vn/data/vietocr/vgg_transformer.pth
+weights: ./hocba_vietocr_fit/weights/vgg19_transformer_hocba.pth
+
+backbone: vgg19_bn
+seq_modeling: transformer
+
+cnn:
+  pretrained: true
+  ss:
+    - [2, 2]
+    - [2, 2]
+    - [2, 1]
+    - [2, 1]
+    - [1, 1]
+  ks:
+    - [2, 2]
+    - [2, 2]
+    - [2, 1]
+    - [2, 1]
+    - [1, 1]
+  hidden: 256
+
+transformer:
+  d_model: 256
+  nhead: 8
+  num_encoder_layers: 6
+  num_decoder_layers: 6
+  dim_feedforward: 2048
+  max_seq_length: 1024
+  pos_dropout: 0.1
+  trans_dropout: 0.1
+
+optimizer:
+  max_lr: 0.0001
+  pct_start: 0.15
+
+trainer:
+  batch_size: 32
+  print_every: 50
+  valid_every: 250
+  iters: 6000
+  export: ./hocba_vietocr_fit/weights/vgg19_transformer_hocba.pth
+  checkpoint: ./hocba_vietocr_fit/checkpoints/vgg19_transformer_hocba_checkpoint.pth
+  log: ./hocba_vietocr_fit/logs/train.log
+  metrics: 1027
+  label_smoothing: 0.1
+  early_stopping:
+    enabled: true
+    patience: 8
+    min_delta: 0.0005
+
+dataset:
+  name: hocba_cells
+  data_root: ./hocba_vietocr_fit/ocr_data
+  train_annotation: annotation_train.txt
+  valid_annotation: annotation_val.txt
+  image_height: 32
+  image_min_width: 32
+  image_max_width: 768
+
+dataloader:
+  num_workers: 2
+  pin_memory: true
+
+aug:
+  image_aug: true
+  masked_language_model: true
+
+predictor:
+  beamsearch: false
+
+quiet: false
+
+wandb:
+  enabled: false
+  project: hocba-vietocr
+  name: vgg19-transformer-hocba

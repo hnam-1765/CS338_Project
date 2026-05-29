@@ -1,0 +1,30 @@
+{
+  "data_root": "hocba_vietocr_fit/ocr_data",
+  "total_images": 10026,
+  "flagged_images": 244,
+  "thresholds": {
+    "blur": 367.75050354003906,
+    "contrast": 11.653547763824463
+  },
+  "reason_counts": {
+    "low_laplacian_blur_score": 201,
+    "low_contrast": 101,
+    "too_bright": 9
+  },
+  "by_split": {
+    "train": 7325,
+    "val": 1027,
+    "test": 1674
+  },
+  "flagged_by_split": {
+    "train": 170,
+    "val": 33,
+    "test": 41
+  },
+  "outputs": {
+    "all_csv": "hocba_vietocr_fit/quality_audit/quality_all.csv",
+    "flagged_csv": "hocba_vietocr_fit/quality_audit/quality_flagged.csv",
+    "random_contact_sheet": "hocba_vietocr_fit/quality_audit/contact_sheet_random_300.jpg",
+    "worst_blur_contact_sheet": "hocba_vietocr_fit/quality_audit/contact_sheet_worst_blur_300.jpg"
+  }
+}
