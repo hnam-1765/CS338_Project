@@ -17,7 +17,30 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 PROJECT_ROOT = Path(__file__).resolve().parent
 DEFAULT_CONFIG = PROJECT_ROOT / "configs" / "vgg19_transformer_hocba.yml"
 DEFAULT_WEIGHTS = PROJECT_ROOT / "weights" / "vgg19_transformer_hocba.pth"
+SAMPLES_ROOT = PROJECT_ROOT / "static" / "samples"
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+SAMPLE_IMAGES = {
+    "grade-94": {
+        "filename": "grade-94.jpg",
+        "title": "Grade cell",
+        "expected_text": "9,4",
+    },
+    "rating-good": {
+        "filename": "rating-good.jpg",
+        "title": "Rating cell",
+        "expected_text": "Tốt",
+    },
+    "school-year": {
+        "filename": "school-year.jpg",
+        "title": "School year",
+        "expected_text": "2021 - 2022",
+    },
+    "school-name": {
+        "filename": "school-name.jpg",
+        "title": "School name",
+        "expected_text": "THPT Phan Chu Trinh",
+    },
+}
 
 
 def add_local_vietocr_to_path() -> None:
@@ -114,7 +137,7 @@ class PredictorService:
 def load_uploaded_image() -> tuple[Image.Image, str]:
     upload = request.files.get("image")
     if upload is None or not upload.filename:
-        raise ValueError("Select a cell image before running OCR.")
+        raise ValueError("Upload a cell image or choose one of the sample images.")
 
     raw = upload.read(MAX_UPLOAD_BYTES + 1)
     if len(raw) > MAX_UPLOAD_BYTES:
@@ -131,6 +154,33 @@ def load_uploaded_image() -> tuple[Image.Image, str]:
     return image, upload.filename
 
 
+def load_sample_image(sample_id: str) -> tuple[Image.Image, str]:
+    sample = SAMPLE_IMAGES.get(sample_id)
+    if sample is None:
+        raise ValueError("The selected sample image is not available.")
+
+    sample_path = SAMPLES_ROOT / sample["filename"]
+    if not sample_path.is_file():
+        raise ValueError("The selected sample image is missing from the deployment.")
+
+    with Image.open(sample_path) as opened:
+        opened.load()
+        image = ImageOps.exif_transpose(opened).convert("RGB")
+    return image, f"Sample: {sample['title']}"
+
+
+def load_requested_image() -> tuple[Image.Image, str]:
+    upload = request.files.get("image")
+    if upload is not None and upload.filename:
+        return load_uploaded_image()
+
+    sample_id = request.form.get("sample_id", "").strip()
+    if sample_id:
+        return load_sample_image(sample_id)
+
+    raise ValueError("Upload a cell image or choose one of the sample images.")
+
+
 def image_to_data_uri(image: Image.Image) -> str:
     preview = image.copy()
     preview.thumbnail((1100, 540), Image.Resampling.LANCZOS)
@@ -144,18 +194,24 @@ def create_app(service: PredictorService) -> Flask:
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES
 
+    def render_page(**context: Any) -> str:
+        return render_template(
+            "web_demo.html",
+            model=service.status(),
+            samples=SAMPLE_IMAGES,
+            **context,
+        )
+
     @app.get("/")
     def index() -> str:
-        return render_template("web_demo.html", model=service.status())
+        return render_page()
 
     @app.post("/")
     def predict() -> tuple[str, int] | str:
         try:
-            image, filename = load_uploaded_image()
+            image, filename = load_requested_image()
             prediction = service.predict(image)
-            return render_template(
-                "web_demo.html",
-                model=service.status(),
+            return render_page(
                 filename=filename,
                 image_size=f"{image.width} x {image.height} px",
                 preview_uri=image_to_data_uri(image),
@@ -163,7 +219,7 @@ def create_app(service: PredictorService) -> Flask:
                 preview_only=prediction is None,
             )
         except (ValueError, RuntimeError) as exc:
-            return render_template("web_demo.html", model=service.status(), error=str(exc)), 400
+            return render_page(error=str(exc)), 400
 
     @app.get("/health")
     def health() -> Any:
@@ -172,9 +228,7 @@ def create_app(service: PredictorService) -> Flask:
     @app.errorhandler(413)
     def upload_too_large(_: Any) -> tuple[str, int]:
         return (
-            render_template(
-                "web_demo.html",
-                model=service.status(),
+            render_page(
                 error="The image exceeds the 10 MB upload limit.",
             ),
             413,
