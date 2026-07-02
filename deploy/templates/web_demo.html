@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>HocBa OCR Demo</title>
+    <style>
+      :root {
+        --ink: #102a43;
+        --muted: #627d98;
+        --line: #d9e2ec;
+        --paper: #ffffff;
+        --accent: #0f766e;
+        --accent-dark: #115e59;
+        --accent-soft: #ccfbf1;
+        --danger: #b42318;
+        --danger-bg: #fef3f2;
+        --ready: #027a48;
+        --ready-bg: #ecfdf3;
+        --warning: #9a6700;
+        --warning-bg: #fff8c5;
+        --blue: #2563eb;
+        --blue-soft: #dbeafe;
+        --shadow: 0 16px 42px rgba(16, 42, 67, 0.08);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        background: #f6f9fc;
+        font: 16px/1.55 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      .shell {
+        width: min(1200px, calc(100% - 32px));
+        margin: 34px auto;
+      }
+
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        gap: 18px;
+        align-items: flex-end;
+        margin-bottom: 18px;
+      }
+
+      h1, h2, p { margin: 0; }
+      h1 { font-size: clamp(30px, 4vw, 46px); line-height: 1; letter-spacing: -0.05em; }
+      h2 { font-size: 20px; letter-spacing: -0.03em; }
+      .muted { color: var(--muted); font-size: 14px; }
+
+      .status-line {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .badge {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        padding: 7px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+
+      .available, .waiting { color: var(--warning); background: var(--warning-bg); }
+      .ready { color: var(--ready); background: var(--ready-bg); }
+      .error { color: var(--danger); background: var(--danger-bg); }
+
+      .card {
+        position: relative;
+        padding: 20px;
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        background: var(--paper);
+        box-shadow: var(--shadow);
+      }
+
+      .alert {
+        margin-bottom: 16px;
+        padding: 13px 15px;
+        border-radius: 14px;
+        color: var(--danger);
+        background: var(--danger-bg);
+        font-weight: 650;
+      }
+
+      .upload-row {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: minmax(280px, 1fr) auto;
+        align-items: stretch;
+      }
+
+      .drop-zone {
+        display: grid;
+        min-height: 150px;
+        padding: 22px;
+        place-items: center;
+        border: 2px dashed #9fb3c8;
+        border-radius: 18px;
+        background: #f8fafc;
+        text-align: center;
+        transition: 160ms ease;
+      }
+
+      .drop-zone.dragging {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+      }
+
+      .drop-zone strong { display: block; margin-bottom: 4px; font-size: 18px; }
+      .drop-zone span { color: var(--muted); font-size: 14px; }
+      input[type="file"] { display: none; }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 46px;
+        padding: 0 18px;
+        border: 0;
+        border-radius: 12px;
+        color: #fff;
+        background: var(--accent);
+        cursor: pointer;
+        font: inherit;
+        font-weight: 800;
+        transition: 160ms ease;
+      }
+
+      .button:hover { background: var(--accent-dark); transform: translateY(-1px); }
+      .button:disabled { cursor: wait; opacity: 0.78; transform: none; }
+      .choose { margin-top: 14px; }
+      .submit { min-width: 190px; height: 100%; }
+      .filename { min-height: 22px; margin-top: 10px; color: var(--muted); font-size: 14px; }
+
+      .samples {
+        display: grid;
+        gap: 10px;
+        margin-top: 16px;
+      }
+
+      .sample-grid {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .sample-card {
+        display: grid;
+        gap: 7px;
+        padding: 8px;
+        border: 1px solid var(--line);
+        border-radius: 13px;
+        background: #f8fafc;
+        cursor: pointer;
+        text-align: left;
+        transition: 160ms ease;
+      }
+
+      .sample-card:hover {
+        border-color: var(--accent);
+        background: #f0fdfa;
+        transform: translateY(-1px);
+      }
+
+      .sample-card img {
+        width: 100%;
+        height: 72px;
+        object-fit: contain;
+        border-radius: 8px;
+        background: #fff;
+      }
+
+      .sample-card span {
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .loading {
+        display: none;
+        position: absolute;
+        inset: 0;
+        z-index: 20;
+        place-items: center;
+        padding: 24px;
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.78);
+        backdrop-filter: blur(4px);
+      }
+
+      .loading.active { display: grid; }
+
+      .loading-box {
+        display: grid;
+        gap: 12px;
+        justify-items: center;
+        max-width: 360px;
+        padding: 22px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: #fff;
+        box-shadow: var(--shadow);
+        text-align: center;
+      }
+
+      .spinner {
+        width: 38px;
+        height: 38px;
+        border: 4px solid var(--accent-soft);
+        border-top-color: var(--accent);
+        border-radius: 999px;
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+
+      .results-layout {
+        display: grid;
+        gap: 18px;
+        grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.85fr);
+        margin-top: 20px;
+      }
+
+      .result-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: flex-start;
+        margin-bottom: 10px;
+      }
+
+      .count-pill {
+        flex: none;
+        padding: 7px 11px;
+        border-radius: 999px;
+        color: var(--blue);
+        background: var(--blue-soft);
+        font-size: 13px;
+        font-weight: 850;
+      }
+
+      .image-stage {
+        overflow: auto;
+        max-height: 78vh;
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background: #0f172a;
+      }
+
+      .image-wrap {
+        position: relative;
+        width: fit-content;
+        max-width: 100%;
+        margin: 0 auto;
+      }
+
+      .image-wrap img {
+        display: block;
+        max-width: 100%;
+        height: auto;
+        border-radius: 12px;
+      }
+
+      .box {
+        position: absolute;
+        border: 2px solid rgba(20, 184, 166, 0.95);
+        border-radius: 6px;
+        background: rgba(20, 184, 166, 0.10);
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+      }
+
+      .box-label {
+        position: absolute;
+        left: -2px;
+        top: -24px;
+        max-width: 240px;
+        padding: 3px 7px;
+        border-radius: 999px;
+        color: #052e2b;
+        background: rgba(204, 251, 241, 0.96);
+        font-size: 12px;
+        font-weight: 850;
+        white-space: nowrap;
+      }
+
+      .result-list {
+        display: grid;
+        gap: 10px;
+        max-height: 78vh;
+        overflow: auto;
+        padding-right: 4px;
+      }
+
+      .row {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: 34px 92px minmax(0, 1fr);
+        align-items: center;
+        padding: 10px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: #fbfdff;
+      }
+
+      .idx {
+        display: grid;
+        width: 30px;
+        height: 30px;
+        place-items: center;
+        border-radius: 999px;
+        color: #fff;
+        background: var(--accent);
+        font-weight: 850;
+        font-size: 13px;
+      }
+
+      .crop {
+        display: grid;
+        min-height: 52px;
+        place-items: center;
+        border-radius: 10px;
+        background: #f1f5f9;
+      }
+
+      .crop img {
+        max-width: 88px;
+        max-height: 58px;
+        border-radius: 6px;
+      }
+
+      .text {
+        font-size: 17px;
+        font-weight: 850;
+        overflow-wrap: anywhere;
+      }
+
+      .box-meta {
+        display: block;
+        margin-top: 2px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      @media (max-width: 920px) {
+        .topbar { align-items: flex-start; flex-direction: column; }
+        .status-line { justify-content: flex-start; }
+        .upload-row, .results-layout { grid-template-columns: 1fr; }
+        .sample-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .submit { width: 100%; min-height: 50px; }
+      }
+
+      @media (max-width: 620px) {
+        .shell { margin: 22px auto; }
+        .card { padding: 16px; }
+        .row { grid-template-columns: 30px 76px minmax(0, 1fr); }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <div class="topbar">
+        <div>
+          <h1>HocBa OCR Demo</h1>
+          <p class="muted">Upload a report card page to detect boxes and recognize text.</p>
+        </div>
+        <div class="status-line">
+          <span class="badge {{ status.detector.state }}">Detector · {{ status.detector.state }}</span>
+          <span class="badge {{ status.ocr.state }}">OCR · {{ status.ocr.state }}</span>
+        </div>
+      </div>
+
+      <section class="card">
+        <div class="loading" id="loading" aria-live="polite" aria-hidden="true">
+          <div class="loading-box">
+            <div class="spinner"></div>
+            <strong>Running Detect & OCR...</strong>
+            <p class="muted">This can take a moment on CPU.</p>
+          </div>
+        </div>
+
+        {% if error %}
+          <div class="alert">{{ error }}</div>
+        {% endif %}
+
+        <form method="post" enctype="multipart/form-data" id="ocr-form">
+          <div class="upload-row">
+            <label class="drop-zone" id="drop-zone" for="image">
+              <div>
+                <strong>Drop a page image here</strong>
+                <span>JPG/PNG, up to 15 MB</span>
+                <div class="button choose">Choose image</div>
+                <div class="filename" id="filename">{{ filename or "No file selected" }}</div>
+              </div>
+            </label>
+            <input id="image" name="image" type="file" accept="image/*" required>
+            <button class="button submit" type="submit" id="submit-button">Detect & OCR</button>
+          </div>
+        </form>
+
+        <section class="samples" aria-label="Samples">
+          <p class="muted">Samples</p>
+          <div class="sample-grid">
+            {% for sample_id, sample in samples.items() %}
+              <form method="post" class="sample-form">
+                <input type="hidden" name="sample_id" value="{{ sample_id }}">
+                <button class="sample-card" type="submit" aria-label="Use sample {{ sample.title }}">
+                  <img src="{{ url_for('static', filename='samples/' + sample.filename) }}" alt="{{ sample.title }}">
+                  <span>{{ sample.title }}</span>
+                </button>
+              </form>
+            {% endfor %}
+          </div>
+        </section>
+
+        {% if preview_uri %}
+          <section class="results-layout">
+            <div>
+              <div class="result-header">
+                <div>
+                  <h2>Annotated page</h2>
+                  <p class="muted">{{ filename }} · {{ image_size }}</p>
+                </div>
+                <span class="count-pill">{{ count }} boxes</span>
+              </div>
+
+              <div class="image-stage">
+                <div class="image-wrap">
+                  <img src="{{ preview_uri }}" alt="Uploaded report card page">
+                  {% for item in results %}
+                    <div
+                      class="box"
+                      style="left: {{ item.bbox.x_pct }}%; top: {{ item.bbox.y_pct }}%; width: {{ item.bbox.width_pct }}%; height: {{ item.bbox.height_pct }}%;"
+                      title="#{{ item.index }} {{ item.text }}"
+                    >
+                      <span class="box-label">#{{ item.index }} · {{ item.text }}</span>
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+
+            <aside>
+              <div class="result-header">
+                <div>
+                  <h2>Labels</h2>
+                  <p class="muted">Top-left to bottom-right</p>
+                </div>
+              </div>
+
+              <div class="result-list">
+                {% for item in results %}
+                  <article class="row">
+                    <span class="idx">{{ item.index }}</span>
+                    <span class="crop"><img src="{{ item.crop_uri }}" alt="Crop {{ item.index }}"></span>
+                    <span>
+                      <span class="text">{{ item.text }}</span>
+                      <span class="box-meta">x={{ item.bbox.x }}, y={{ item.bbox.y }}, w={{ item.bbox.width }}, h={{ item.bbox.height }}</span>
+                    </span>
+                  </article>
+                {% else %}
+                  <p class="muted">No text regions were detected.</p>
+                {% endfor %}
+              </div>
+            </aside>
+          </section>
+        {% endif %}
+      </section>
+    </main>
+
+    <script>
+      const input = document.getElementById("image");
+      const dropZone = document.getElementById("drop-zone");
+      const filename = document.getElementById("filename");
+      const form = document.getElementById("ocr-form");
+      const loading = document.getElementById("loading");
+      const submitButton = document.getElementById("submit-button");
+      const sampleForms = document.querySelectorAll(".sample-form");
+
+      input.addEventListener("change", () => {
+        filename.textContent = input.files.length ? input.files[0].name : "No file selected";
+      });
+
+      ["dragenter", "dragover"].forEach((eventName) => {
+        dropZone.addEventListener(eventName, (event) => {
+          event.preventDefault();
+          dropZone.classList.add("dragging");
+        });
+      });
+
+      ["dragleave", "drop"].forEach((eventName) => {
+        dropZone.addEventListener(eventName, (event) => {
+          event.preventDefault();
+          dropZone.classList.remove("dragging");
+        });
+      });
+
+      dropZone.addEventListener("drop", (event) => {
+        if (event.dataTransfer.files.length) {
+          input.files = event.dataTransfer.files;
+          filename.textContent = input.files[0].name;
+        }
+      });
+
+      form.addEventListener("submit", () => {
+        loading.classList.add("active");
+        loading.setAttribute("aria-hidden", "false");
+        submitButton.disabled = true;
+        submitButton.textContent = "Running...";
+      });
+
+      sampleForms.forEach((sampleForm) => {
+        sampleForm.addEventListener("submit", () => {
+          loading.classList.add("active");
+          loading.setAttribute("aria-hidden", "false");
+          submitButton.disabled = true;
+          submitButton.textContent = "Running...";
+        });
+      });
+    </script>
+  </body>
+</html>
