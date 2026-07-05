@@ -11,10 +11,17 @@ from typing import Any, Dict, Optional
 import yaml
 
 
-ROOT = Path(__file__).resolve().parents[1]
-LOCAL_VIETOCR = ROOT / "vietocr"
-if str(LOCAL_VIETOCR) not in sys.path:
-    sys.path.insert(0, str(LOCAL_VIETOCR))
+PROJECT_ROOT = Path(__file__).resolve().parent
+WORKSPACE_ROOT = PROJECT_ROOT.parent
+
+
+def add_local_vietocr_to_path() -> None:
+    for candidate in (PROJECT_ROOT / "vietocr", WORKSPACE_ROOT / "vietocr"):
+        if candidate.is_dir() and str(candidate) not in sys.path:
+            sys.path.insert(0, str(candidate))
+
+
+add_local_vietocr_to_path()
 
 
 def parse_args() -> argparse.Namespace:
@@ -22,7 +29,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--config",
         type=Path,
-        default=ROOT / "hocba_vietocr_fit" / "configs" / "vgg19_transformer_hocba.yml",
+        default=PROJECT_ROOT / "configs" / "vgg19_transformer_hocba.yml",
         help="Full VietOCR config file.",
     )
     parser.add_argument("--device", default=None, help="Override device, e.g. cuda:0 or cpu.")

@@ -7,6 +7,9 @@ from pathlib import Path
 from typing import Dict, Iterable, Set
 
 
+PROJECT_ROOT = Path(__file__).resolve().parent
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Create filtered VietOCR annotation files after manual quality review."
@@ -14,13 +17,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--data-root",
         type=Path,
-        default=Path("hocba_vietocr_fit/ocr_data"),
+        default=PROJECT_ROOT / "ocr_data",
         help="VietOCR cell dataset folder containing annotation_train/val/test.txt.",
     )
     parser.add_argument(
         "--flagged-csv",
         type=Path,
-        default=Path("hocba_vietocr_fit/quality_audit/quality_flagged.csv"),
+        default=PROJECT_ROOT / "quality_audit" / "quality_flagged.csv",
         help="CSV produced by audit_cell_quality.py.",
     )
     parser.add_argument(

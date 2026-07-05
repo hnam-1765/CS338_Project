@@ -4,7 +4,7 @@ vocab: 'aAàÀảẢãÃáÁạẠăĂằẰẳẲẵẴắẮặẶâÂầẦ�
 device: cuda:0
 
 pretrain: https://vocr.vn/data/vietocr/vgg_transformer.pth
-weights: ./hocba_vietocr_fit/weights/vgg19_transformer_hocba.pth
+weights: ./weights/vgg19_transformer_hocba.pth
 
 backbone: vgg19_bn
 seq_modeling: transformer
@@ -44,9 +44,9 @@ trainer:
   print_every: 50
   valid_every: 250
   iters: 6000
-  export: ./hocba_vietocr_fit/weights/vgg19_transformer_hocba.pth
-  checkpoint: ./hocba_vietocr_fit/checkpoints/vgg19_transformer_hocba_checkpoint.pth
-  log: ./hocba_vietocr_fit/logs/train.log
+  export: ./weights/vgg19_transformer_hocba.pth
+  checkpoint: ./checkpoints/vgg19_transformer_hocba_checkpoint.pth
+  log: ./logs/train.log
   metrics: 1027
   label_smoothing: 0.1
   early_stopping:
@@ -56,7 +56,7 @@ trainer:
 
 dataset:
   name: hocba_cells
-  data_root: ./hocba_vietocr_fit/ocr_data
+  data_root: ./ocr_data
   train_annotation: annotation_train.txt
   valid_annotation: annotation_val.txt
   image_height: 32

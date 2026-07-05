@@ -1,2 +1,22 @@
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
 .venv/
+venv/
+.env
+.DS_Store
+
+# Training/runtime outputs
+ocr_data/
 weights/
+checkpoints/
+logs/
+saved_models/
+saved_images/
+train_hocba_cells/
+valid_hocba_cells/
+wandb/
+
+# Large deployment-only artifacts can be added deliberately when publishing a Space.
+deploy/weights/
+deploy/vietocr/

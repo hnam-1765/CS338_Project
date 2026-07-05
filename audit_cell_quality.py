@@ -16,6 +16,9 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 
+PROJECT_ROOT = Path(__file__).resolve().parent
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Audit cropped OCR cell image quality with blur/contrast/brightness checks."
@@ -23,13 +26,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--data-root",
         type=Path,
-        default=Path("hocba_vietocr_fit/ocr_data"),
+        default=PROJECT_ROOT / "ocr_data",
         help="Prepared VietOCR cell dataset folder.",
     )
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("hocba_vietocr_fit/quality_audit"),
+        default=PROJECT_ROOT / "quality_audit",
         help="Output folder for reports, contact sheets, and flagged samples.",
     )
     parser.add_argument(

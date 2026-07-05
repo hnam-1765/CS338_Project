@@ -12,3 +12,4 @@ imgaug==0.4.0
 scikit-image
 einops
 wandb
+Flask==3.1.3

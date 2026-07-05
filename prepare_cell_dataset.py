@@ -13,6 +13,7 @@ from PIL import Image, ImageOps
 
 
 IMAGE_EXT = ".jpg"
+PROJECT_ROOT = Path(__file__).resolve().parent
 
 
 def parse_args() -> argparse.Namespace:
@@ -28,7 +29,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("hocba_vietocr_fit/ocr_data"),
+        default=PROJECT_ROOT / "ocr_data",
         help="Output folder for cropped cell images and VietOCR annotation files.",
     )
     parser.add_argument(

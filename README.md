@@ -1,78 +1,151 @@
-# HocBa VietOCR Fine-tuning
+# HocBa OCR
 
-Folder này dùng pretrained `VGG19-bn + Transformer` của VietOCR để fine-tune trên dataset học bạ dạng cell.
+<p align="center"><em>Vietnamese report-card OCR with PaddleOCR text detection and fine-tuned VietOCR recognition.</em></p>
 
-## 1. Chuẩn bị cropped cell dataset
+<p align="center">
+  <a href="https://huggingface.co/spaces/SaitoHoujou/HocBa-OCR_Demo_Web"><img alt="Hugging Face Space" src="https://img.shields.io/badge/Hugging%20Face-Live%20Demo-ffcc4d?logo=huggingface&amp;logoColor=black"></a>
+  <img alt="Python" src="https://img.shields.io/badge/Python-3.10%2B-blue">
+  <img alt="Framework" src="https://img.shields.io/badge/OCR-PaddleOCR%20%2B%20VietOCR-green">
+</p>
 
-Chạy từ root repo `/home/namhoai/WorkSpace/Hoctap/CS338`:
+HocBa OCR is a research and deployment project for extracting text from Vietnamese school report cards. The pipeline detects text regions on a full-page report-card image with PaddleOCR, crops each detected region, then recognizes Vietnamese text with a VGG19-bn + Transformer VietOCR model fine-tuned on report-card cell crops.
+
+Live demo: https://huggingface.co/spaces/SaitoHoujou/HocBa-OCR_Demo_Web
+
+## What This Repository Contains
+
+| Area | Purpose |
+| --- | --- |
+| `prepare_cell_dataset.py` | Crop labeled report-card cells into VietOCR training samples |
+| `audit_cell_quality.py` | Measure blur, contrast, brightness, and create review sheets |
+| `filter_annotations.py` | Build filtered annotations after manual quality review |
+| `train_hocba.py` | Fine-tune VietOCR on prepared report-card cells |
+| `predict_one.py` | Run recognition on one cropped cell image |
+| `web_demo.py` | Lightweight local cell-level OCR demo |
+| `deploy/` | Hugging Face Space deployment for full-page OCR |
+| `configs/` | VietOCR training/inference configuration |
+| `quality_audit/` | Audit reports and visual sheets from the prepared cell dataset |
+
+The public-facing demo lives in `deploy/`. The root-level scripts are for dataset preparation, quality control, model training, and local experimentation.
+
+## Pipeline Overview
+
+```text
+Annotated report-card pages
+        |
+        v
+prepare_cell_dataset.py
+        |
+        v
+Cropped OCR cells + VietOCR annotations
+        |
+        v
+audit_cell_quality.py + optional filter_annotations.py
+        |
+        v
+train_hocba.py
+        |
+        v
+Fine-tuned VietOCR checkpoint
+        |
+        v
+deploy/web_demo.py: PaddleOCR detection -> VietOCR recognition -> web results
+```
+
+## Demo
+
+The Hugging Face Space accepts a full-page report-card image and returns detected text boxes with recognized text.
+
+- Space: https://huggingface.co/spaces/SaitoHoujou/HocBa-OCR_Demo_Web
+- Runtime: Docker Space
+- App entrypoint: `deploy/web_demo.py`
+- Detection model: local PaddleOCR `ch_PP-OCRv4_det_infer`
+- Recognition model: fine-tuned VietOCR checkpoint expected at `deploy/weights/vgg19_transformer_hocba.pth`
+
+## Dataset Preparation
+
+The preparation script expects a source dataset with:
+
+```text
+datasets/
+|-- images/
+|-- label/
+`-- dataset_metadata.json
+```
+
+Create cropped cell images and VietOCR annotation files:
 
 ```bash
-python3 hocba_vietocr_fit/prepare_cell_dataset.py \
+python prepare_cell_dataset.py \
   --source datasets \
-  --output hocba_vietocr_fit/ocr_data \
+  --output ocr_data \
   --padding 2 \
-  --overwrite
-```
-
-Output chính:
-
-```text
-hocba_vietocr_fit/ocr_data/images/{train,val,test}/...
-hocba_vietocr_fit/ocr_data/annotation_train.txt
-hocba_vietocr_fit/ocr_data/annotation_val.txt
-hocba_vietocr_fit/ocr_data/annotation_test.txt
-hocba_vietocr_fit/ocr_data/metadata_cells.jsonl
-hocba_vietocr_fit/ocr_data/summary.json
-```
-
-Mỗi dòng annotation có format VietOCR:
-
-```text
-relative/path/to/cell.jpg<TAB>label
-```
-
-Script tự dùng `ImageOps.exif_transpose()` trước khi crop, vì một số ảnh học bạ có EXIF orientation.
-
-## 1.5. Kiểm tra chất lượng ảnh cell
-
-Sau khi crop, chạy audit blur/contrast/brightness và tạo contact sheet để xem thủ công:
-
-```bash
-python3 hocba_vietocr_fit/audit_cell_quality.py \
-  --data-root hocba_vietocr_fit/ocr_data \
-  --output hocba_vietocr_fit/quality_audit \
-  --sample-size 300 \
   --overwrite
 ```
 
 Output:
 
 ```text
-hocba_vietocr_fit/quality_audit/quality_all.csv
-hocba_vietocr_fit/quality_audit/quality_flagged.csv
-hocba_vietocr_fit/quality_audit/contact_sheet_random_300.jpg
-hocba_vietocr_fit/quality_audit/contact_sheet_worst_blur_300.jpg
-hocba_vietocr_fit/quality_audit/flagged_samples/
+ocr_data/
+|-- images/{train,val,test}/...
+|-- annotation_train.txt
+|-- annotation_val.txt
+|-- annotation_test.txt
+|-- metadata_cells.jsonl
+|-- summary.json
+`-- vocab_chars.txt
 ```
 
-Metric chính là `laplacian_var`: ảnh càng mờ thì score càng thấp. Script chọn ngưỡng theo percentile của chính dataset để tránh đặt ngưỡng cứng sai với ảnh học bạ.
-
-Nếu sau khi xem ảnh xấu bạn muốn loại một số ảnh khỏi train, tạo file text, mỗi dòng là relative path trong `quality_flagged.csv`, ví dụ:
+Annotation format:
 
 ```text
-images/train/hoctap/xxx_cell000.jpg
-images/val/nhanxet/yyy_cell003.jpg
+relative/path/to/cell.jpg<TAB>label
 ```
 
-Rồi tạo annotation filtered:
+The script applies EXIF orientation correction before cropping and skips empty labels by default.
+
+## Quality Audit
+
+OCR quality is sensitive to blur, low contrast, overexposure, tight crops, label noise, and train/validation leakage. This repo includes an audit step so bad crops can be reviewed before training.
+
+Run the audit:
 
 ```bash
-python3 hocba_vietocr_fit/filter_annotations.py \
-  --data-root hocba_vietocr_fit/ocr_data \
-  --exclude-list hocba_vietocr_fit/quality_audit/exclude_images.txt
+python audit_cell_quality.py \
+  --data-root ocr_data \
+  --output quality_audit \
+  --sample-size 300 \
+  --overwrite
 ```
 
-Sau đó đổi config:
+Current audit summary:
+
+| Metric | Value |
+| --- | ---: |
+| Total cropped cells | 10,026 |
+| Train / Val / Test | 7,325 / 1,027 / 1,674 |
+| Flagged for review | 244 |
+| Main checks | Laplacian blur, contrast, brightness, minimum size |
+
+Review sheets:
+
+<p align="center">
+  <img src="quality_audit/contact_sheet_random_300.jpg" alt="Random OCR cell quality contact sheet" width="92%">
+</p>
+
+<p align="center">
+  <img src="quality_audit/contact_sheet_worst_blur_300.jpg" alt="Worst blur OCR cell quality contact sheet" width="92%">
+</p>
+
+After manual review, create an exclusion list and filtered annotations:
+
+```bash
+python filter_annotations.py \
+  --data-root ocr_data \
+  --exclude-list quality_audit/exclude_images.txt
+```
+
+Then update `configs/vgg19_transformer_hocba.yml`:
 
 ```yaml
 dataset:
@@ -80,47 +153,28 @@ dataset:
   valid_annotation: annotation_val_filtered.txt
 ```
 
-## 2. Fine-tune VGG19 Transformer
+## Training
 
-Nếu chưa cài dependency, cài tối thiểu:
+Install dependencies:
 
 ```bash
-pip install -r hocba_vietocr_fit/requirements.txt
-pip install -e vietocr
+pip install -r requirements.txt
+pip install -e ../vietocr
 ```
 
-Trên Kaggle P100, nếu log báo `Tesla P100 ... sm_60 is not compatible` hoặc
-`CUDA error: no kernel image is available for execution on the device`, hãy cài
-PyTorch CUDA 11.8 bản cũ hơn trước khi train:
+Train on GPU:
 
 ```bash
-python -m pip install --upgrade --force-reinstall \
-  torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1 \
-  --index-url https://download.pytorch.org/whl/cu118
-```
-
-Sau đó chạy lại từ đầu kernel/session để chắc chắn `torch` mới được import.
-
-Nếu Kaggle báo `AttributeError: np.sctypes was removed in the NumPy 2.0 release`
-khi import `imgaug`, pin NumPy về 1.x:
-
-```bash
-python -m pip install --force-reinstall numpy==1.26.4 imgaug==0.4.0
-```
-
-Train:
-
-```bash
-python3 hocba_vietocr_fit/train_hocba.py \
-  --config hocba_vietocr_fit/configs/vgg19_transformer_hocba.yml \
+python train_hocba.py \
+  --config configs/vgg19_transformer_hocba.yml \
   --device cuda:0 \
   --rebuild-lmdb
 ```
 
-Chạy thử CPU hoặc giảm tải:
+Small CPU smoke run:
 
 ```bash
-python3 hocba_vietocr_fit/train_hocba.py \
+python train_hocba.py \
   --device cpu \
   --batch-size 4 \
   --iters 100 \
@@ -128,43 +182,98 @@ python3 hocba_vietocr_fit/train_hocba.py \
   --rebuild-lmdb
 ```
 
-Best weights sẽ được lưu tại:
+Default training settings:
+
+| Setting | Value |
+| --- | --- |
+| Backbone | `vgg19_bn` |
+| Sequence model | Transformer |
+| Image height | 32 |
+| Max image width | 768 |
+| Batch size | 32 |
+| Iterations | 6,000 |
+| Max learning rate | `1e-4` |
+| Validation interval | 250 |
+| Label smoothing | 0.1 |
+| Early stopping | enabled, patience 8 validations |
+
+Best weights are exported to:
 
 ```text
-hocba_vietocr_fit/weights/vgg19_transformer_hocba.pth
+weights/vgg19_transformer_hocba.pth
 ```
 
-Config mặc định hiện tại cho dataset cell này:
+## Single-Image Prediction
 
-```text
-batch_size: 32
-iters: 6000
-max_lr: 1e-4
-valid_every: 250
-label_smoothing: 0.1
-early_stopping patience: 8 validations
-wandb: tắt mặc định, bật bằng --wandb hoặc sửa config
-```
-
-Notebook Kaggle nằm tại:
-
-```text
-hocba_vietocr_fit/kaggle_train_vgg19_transformer_hocba.ipynb
-```
-
-Notebook luôn copy code sang `/kaggle/working` trước khi chạy, vì `/kaggle/input` là read-only.
-
-## 3. Predict một ảnh
+Run recognition on one cropped cell:
 
 ```bash
-python3 hocba_vietocr_fit/predict_one.py \
-  --img hocba_vietocr_fit/ocr_data/images/test/hoctap/<file>.jpg \
-  --weights hocba_vietocr_fit/weights/vgg19_transformer_hocba.pth \
+python predict_one.py \
+  --img ocr_data/images/test/<category>/<file>.jpg \
+  --weights weights/vgg19_transformer_hocba.pth \
   --device cuda:0
 ```
 
-## Ghi chú
+## Local Web Demo
 
-- `prepare_cell_dataset.py` bỏ qua cell có label rỗng.
-- Config giữ nguyên vocab mặc định của VietOCR để load pretrained head tốt nhất.
-- `train_hocba.py` patch tạm lỗi off-by-one trong hàm tạo LMDB của repo VietOCR local, để không bị mất sample cuối.
+The root-level demo is a simple cell-level OCR interface:
+
+```bash
+python web_demo.py \
+  --weights weights/vgg19_transformer_hocba.pth \
+  --device cpu \
+  --host 0.0.0.0 \
+  --port 5000
+```
+
+Open `http://localhost:5000`.
+
+## Hugging Face Space Deployment
+
+The full-page demo is packaged under `deploy/`:
+
+```text
+deploy/
+|-- Dockerfile
+|-- README.md
+|-- web_demo.py
+|-- configs/
+|-- models/paddleocr/ch_PP-OCRv4_det_infer/
+|-- static/samples/
+`-- templates/
+```
+
+Expected deployment-only files:
+
+```text
+deploy/weights/vgg19_transformer_hocba.pth
+deploy/vietocr/
+```
+
+Upload `deploy/` to the Hugging Face Space repository. The Space metadata is stored in `deploy/README.md`.
+
+## Factors That Affect Accuracy
+
+- Detection quality: missed or merged PaddleOCR boxes propagate directly to recognition errors.
+- Crop quality: blur, low contrast, skew, shadows, and tight boxes reduce VietOCR accuracy.
+- Vocabulary coverage: Vietnamese diacritics, punctuation, and numeric grades must exist in the config vocabulary.
+- Domain shift: printed text, handwriting styles, tables, stamps, and scanned/phone-captured pages differ in texture.
+- Label quality: noisy cell labels can make validation accuracy look unstable and hurt fine-tuning.
+- Split strategy: pages or students should not leak across train/validation/test when measuring generalization.
+
+## Repository Notes
+
+- The project name used in documentation is `HocBa OCR`; the original course folder may still be named `CS338_Project`.
+- Root scripts focus on training and research workflow.
+- `deploy/` is intentionally self-contained for the Hugging Face Space.
+- Large generated artifacts such as `ocr_data/`, `weights/`, `checkpoints/`, and `logs/` should not be committed unless they are meant to be released.
+
+## Citation / Acknowledgements
+
+This project builds on:
+
+- VietOCR VGG19-bn + Transformer recognition.
+- PaddleOCR text detection.
+- A custom Vietnamese report-card cell dataset prepared for CS338 coursework.
+
+If you use this repository, please cite the underlying OCR frameworks and acknowledge this project where appropriate.
