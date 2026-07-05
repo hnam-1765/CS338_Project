@@ -127,16 +127,8 @@ Current audit summary:
 | Flagged for review | 244 |
 | Main checks | Laplacian blur, contrast, brightness, minimum size |
 
-Review sheets:
-
-<p align="center">
-  <img src="quality_audit/contact_sheet_random_300.jpg" alt="Random OCR cell quality contact sheet" width="92%">
-</p>
-
-<p align="center">
-  <img src="quality_audit/contact_sheet_worst_blur_300.jpg" alt="Worst blur OCR cell quality contact sheet" width="92%">
-</p>
-
+ 
+ 
 After manual review, create an exclusion list and filtered annotations:
 
 ```bash
